@@ -35,7 +35,10 @@ const uint8_t DAC_C = 0b010;
 const uint8_t DAC_D = 0b011;
 const uint8_t DAC_ALL = 0b111;
 
-static uint16_t sine_wave[BUFFER_LEN]; // buffer to hold our sinusoid playback. Since DAC channels are 16 bits, array is uint16
+const uint8_t X_AXIS = 1;
+const uint8_t Y_AXIS = 2;
+
+static int sine_wave[BUFFER_LEN]; // buffer to hold our sinusoid playback. Since DAC channels are 16 bits, array is uint16
 static uint8_t DAC_write_word[3]; // DAC input register is 24 bits, SPI writes 8 bits at a time. Need to queue up 3 bytes (24 bits) to send every time you write to it
 
 const int slaveSelectPin = 10;
@@ -43,7 +46,7 @@ const int FCLK_pin = 9;
 const int DRIVER_HV_EN_pin = 8;
 
 int sample = 0;
-int sample2 = 65535/4;
+int sample2 = 1024/4;
 int FCLK_state = LOW;
 int count = 0;
 
@@ -107,12 +110,12 @@ void create_sine() {
   float twopi = 2*3.14159265359; // good old pi
   float phase = twopi/BUFFER_LEN; // phase increment for sinusoid
   float val = 0; // temp variable to store value for sine wave
-  uint16_t num = 0;
+  int num = 0;
   // Fill the sine wave buffer with 1024 points
   Serial.println("Filling in sine wave");
   for (int i = 0; i < BUFFER_LEN; i++){
     val = sin(i*phase); // fill 0 to twopi phase, output range -1 to 1
-    num = (uint16_t) (val*32768 + 32767);// convert decimal to uint16 representation: multiply range to fill 65536 values (-32768 -> 32768) and add 32767 offset to go 0-65535 (ish, lose one value for 0)
+    num = (int) (val*65535);// convert decimal to uint16 representation: multiply range to fill 65536 values (-32768 -> 32768) and add 32767 offset to go 0-65535 (ish, lose one value for 0)
     sine_wave[i] = num; // put in buffer  
   }
 }
@@ -173,6 +176,17 @@ void setChannel(uint16_t channel, uint16_t val) {
   sendCommand();
 }
 
+void setDiff(uint8_t axis, int val) {
+  uint16_t midpoint = 65535/2;
+  if (axis == X_AXIS) {
+    setChannel(DAC_A, midpoint + val/2);
+    setChannel(DAC_B, midpoint - val/2);
+  } else if (axis == Y_AXIS) {
+    setChannel(DAC_D, midpoint + val/2);
+    setChannel(DAC_C, midpoint - val/2);
+  }
+}
+
 void loop() {
   // put your main code here, to run repeatedly:
 
@@ -184,16 +198,12 @@ void loop() {
   if (count == 100) {
     count = 0;
     // grab next sample from sine wave and line it up in the DAC write word
-    setChannel(DAC_A, sine_wave[sample]);
-    setChannel(DAC_B, sine_wave[sample2]);
+    setDiff(X_AXIS, sine_wave[sample]);
+    setDiff(Y_AXIS, sine_wave[sample2]);
     flush();
     
     sample++; // increment for next sample
     sample2++;
-    if (sample == 0) {
-    Serial.println("Sample 1: " + sample);
-    Serial.println(sample2);
-    }
     if (sample >= 1024) sample = 0; // reset to start of array
     if (sample2 >= 1024) sample2 = 0; // reset to start of array
     checkSerial();
