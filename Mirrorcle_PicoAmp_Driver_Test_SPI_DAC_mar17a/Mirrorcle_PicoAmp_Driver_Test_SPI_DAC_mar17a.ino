@@ -16,6 +16,8 @@
 //#include <spi4teensy3.h>
 #include <SPI.h>
 
+#define PI 3.14159265359
+
 #define BUFFER_LEN 1024
 
 // Commands
@@ -38,17 +40,20 @@ const uint8_t DAC_ALL = 0b111;
 const uint8_t X_AXIS = 1;
 const uint8_t Y_AXIS = 2;
 
-static int sine_wave[BUFFER_LEN]; // buffer to hold our sinusoid playback. Since DAC channels are 16 bits, array is uint16
-static uint8_t DAC_write_word[3]; // DAC input register is 24 bits, SPI writes 8 bits at a time. Need to queue up 3 bytes (24 bits) to send every time you write to it
-
+// Pins
 const int slaveSelectPin = 10;
 const int FCLK_pin = 9;
 const int DRIVER_HV_EN_pin = 8;
 
+static int sine_wave[BUFFER_LEN]; // buffer to hold our sinusoid playback. Since DAC channels are 16 bits, array is uint16
+static uint8_t DAC_write_word[3]; // DAC input register is 24 bits, SPI writes 8 bits at a time. Need to queue up 3 bytes (24 bits) to send every time you write to it
+
 int sample = 0;
-int sample2 = 1024/4;
+int sample2 = 1024 >> 2;
 int FCLK_state = LOW;
 int count = 0;
+
+byte hv_enabled = 0;
 
 void setupPins() {
   // Setup Pins:
@@ -107,7 +112,7 @@ void init() {
 }
 
 void create_sine() {
-  float twopi = 2*3.14159265359; // good old pi
+  float twopi = 2*PI; // good old pi
   float phase = twopi/BUFFER_LEN; // phase increment for sinusoid
   float val = 0; // temp variable to store value for sine wave
   int num = 0;
@@ -133,12 +138,16 @@ void checkSerial() {
       byte byte_in = Serial.read();
       // turn HV output on / off with command
       if (byte_in == '1') {
-        Serial.println("HV outputs enabled.");
+        hv_enabled = 1;
         digitalWrite(DRIVER_HV_EN_pin,HIGH);
+
+        Serial.println("HV outputs enabled.");
       }
       if (byte_in == '0') {
-        Serial.println("HV outputs disabled.");
+        hv_enabled = 0;
         digitalWrite(DRIVER_HV_EN_pin,LOW);
+
+        Serial.println("HV outputs disabled.");
       }
     }
 }
