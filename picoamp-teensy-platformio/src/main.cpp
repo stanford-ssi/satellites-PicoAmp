@@ -14,111 +14,35 @@
  */
 
 //#include <spi4teensy3.h>
-#include <SPI.h>
+#include "PicoAmp.h"
 
 #define BUFFER_LEN 1024
-
-// Commands
-const uint8_t WRITE = 0b000;
-const uint8_t UPDATE = 0b001;
-const uint8_t WRITEUPDATEALL = 0b010;
-const uint8_t WRITEUPDATE = 0b011;
-const uint8_t POWERDAC = 0b0;
-const uint8_t RESET = 0b101;
-const uint8_t LDAC = 0b110;
-const uint8_t REFERENCE = 0b111;
-
-// Addresses
-const uint8_t DAC_A = 0b000;
-const uint8_t DAC_B = 0b001;
-const uint8_t DAC_C = 0b010;
-const uint8_t DAC_D = 0b011;
-const uint8_t DAC_ALL = 0b111;
-
-const uint8_t X_AXIS = 1;
-const uint8_t Y_AXIS = 2;
-
-// Pins
-const int slaveSelectPin = 10;
-const int FCLK_pin = 9;
-const int DRIVER_HV_EN_pin = 8;
-
-static int sine_wave[BUFFER_LEN]; // buffer to hold our sinusoid playback. Since DAC channels are 16 bits, array is uint16
-static uint8_t DAC_write_word[3]; // DAC input register is 24 bits, SPI writes 8 bits at a time. Need to queue up 3 bytes (24 bits) to send every time you write to it
+static int16_t sine_wave[BUFFER_LEN]; // buffer to hold our sinusoid playback. Since DAC channels are 16 bits, array is int16
 
 int sample = 0;
 int sample2 = 1024 >> 2;
-int FCLK_state = LOW;
 int count = 0;
 
-byte hv_enabled = 0;
-
-void setupPins() {
-  // Setup Pins:
-  pinMode (slaveSelectPin, OUTPUT); // SPI SS pin 10
-  pinMode (FCLK_pin, OUTPUT); // Driver board filter clock pin 9
-  pinMode (DRIVER_HV_EN_pin, OUTPUT); // driver board high voltage output enable pin 8
-  // write pins low
-  digitalWrite(slaveSelectPin,LOW);
-  digitalWrite(FCLK_pin,FCLK_state);
-  digitalWrite(DRIVER_HV_EN_pin,LOW);
-  // setup serial
-  Serial.begin(19200);
-
-  // setup SPI
-  Serial.println("Setting up SPI");
-  // fast SPI lib
-  // spi4teensy3::init(); // full speed, cpol 0, cpha 0
-
-  // initialize SPI:
-  SPI.begin();
-}
+PicoAmp picoamp;
 
 void init() {
-  setupPins();
-    // setup DAC
-  Serial.println("Setting up DAC");
-  //  send the DAC write word one byte at a time:
-  // 0x280001 FULL_RESET
-  digitalWrite(slaveSelectPin,LOW);
-  SPI.transfer(0x28);
-  SPI.transfer(0x00);
-  SPI.transfer(0x01);
-  digitalWrite(slaveSelectPin,HIGH);
-  delayMicroseconds(1);
-  // 0x380001 INT_REF_EN
-  digitalWrite(slaveSelectPin,LOW);
-  SPI.transfer(0x38);
-  SPI.transfer(0x00);
-  SPI.transfer(0x01);
-  digitalWrite(slaveSelectPin,HIGH);
-  delayMicroseconds(1);
-  // 0x20000F DAC_EN_ALL
-  digitalWrite(slaveSelectPin,LOW);
-  SPI.transfer(0x20);
-  SPI.transfer(0x00);
-  SPI.transfer(0x0F);
-  digitalWrite(slaveSelectPin,HIGH);
-  delayMicroseconds(1);
-  // 0x300000 LDAC_EN
-  digitalWrite(slaveSelectPin,LOW);
-  SPI.transfer(0x30);
-  SPI.transfer(0x00);
-  SPI.transfer(0x00);
-  digitalWrite(slaveSelectPin,HIGH);
-  delayMicroseconds(1);
+  // setup PicoAmp
+  picoamp.init();
+
+  // setup serial
+  Serial.begin(19200);
 }
 
 void create_sine() {
   float twopi = 2*PI; // good old pi
   float phase = twopi/BUFFER_LEN; // phase increment for sinusoid
   float val = 0; // temp variable to store value for sine wave
-  int num = 0;
+  int16_t num = 0;
   // Fill the sine wave buffer with 1024 points
   Serial.println("Filling in sine wave");
   for (int i = 0; i < BUFFER_LEN; i++){
     val = sin(i*phase); // fill 0 to twopi phase, output range -1 to 1
-    num = (int) (val*65535);// convert decimal to uint16 representation: multiply range to fill 65536 values (-32768 -> 32768) and add 32767 offset to go 0-65535 (ish, lose one value for 0)
+    num = (int16_t) ((val*32767));// convert decimal to int16 representation: multiply range to fill 65535 values (-32767 -> 32767) (lose one value, but don't have to deal with rollover)
     sine_wave[i] = num; // put in buffer
   }
 }
@@ -136,62 +60,24 @@ void checkSerial() {
       byte byte_in = Serial.read();
       // turn HV output on / off with command
       if (byte_in == '1') {
-        hv_enabled = 1;
+        picoamp.hv_enabled = 1;
         digitalWrite(DRIVER_HV_EN_pin,HIGH);
 
         Serial.println("HV outputs enabled.");
       }
       if (byte_in == '0') {
-        hv_enabled = 0;
+        picoamp.hv_enabled = 0;
         digitalWrite(DRIVER_HV_EN_pin,LOW);
 
         Serial.println("HV outputs disabled.");
       }
+
+      if (byte_in == 's') {
+        for (int i = 0; i < BUFFER_LEN; i++){
+          Serial.println(sine_wave[i]);
+        }
+      }
     }
-}
-
-void sendCommand() {
-    // default SPI lib
-    // manually toggle SS pin (blergh)
-    digitalWrite(slaveSelectPin,LOW);
-    //  send the DAC write word one byte at a time:
-    SPI.transfer(DAC_write_word[0]);
-    SPI.transfer(DAC_write_word[1]);
-    SPI.transfer(DAC_write_word[2]);
-    // take the SS pin high to de-select the chip:
-    digitalWrite(slaveSelectPin,HIGH);
-}
-
-void setCommand(uint8_t commandByte, uint8_t address) {
-  DAC_write_word[0] = commandByte << 3 | address;
-}
-
-void setData(uint16_t data) {
-  DAC_write_word[1] = data >> 8;     // MSB
-  DAC_write_word[2] = data & 0x00FF; // LSB
-}
-
-void flush() {
-  setCommand(UPDATE, DAC_ALL);
-  setData(0);
-  sendCommand();
-}
-
-void setChannel(uint16_t channel, uint16_t val) {
-  setCommand(WRITE, channel);
-  setData(val);
-  sendCommand();
-}
-
-void setDiff(uint8_t axis, int val) {
-  uint16_t midpoint = 65535/2;
-  if (axis == X_AXIS) {
-    setChannel(DAC_A, midpoint + val/2);
-    setChannel(DAC_B, midpoint - val/2);
-  } else if (axis == Y_AXIS) {
-    setChannel(DAC_D, midpoint + val/2);
-    setChannel(DAC_C, midpoint - val/2);
-  }
 }
 
 void loop() {
@@ -205,9 +91,11 @@ void loop() {
   if (count == 100) {
     count = 0;
     // grab next sample from sine wave and line it up in the DAC write word
-    setDiff(X_AXIS, sine_wave[sample]);
-    setDiff(Y_AXIS, sine_wave[sample2]);
-    flush();
+    picoamp.setDiff(X_AXIS, 2*sine_wave[sample]);
+    //picoamp.setChannel(DAC_A, sine_wave[sample]);
+    //picoamp.setChannel(DAC_B, 65535-sine_wave[sample]);
+    picoamp.setDiff(Y_AXIS, 2*sine_wave[sample2]);
+    picoamp.update();
 
     sample++; // increment for next sample
     sample2++;
@@ -218,10 +106,10 @@ void loop() {
   }
 
   // toggle the FCLK pin every time
-  if (FCLK_state == LOW){
-    FCLK_state = HIGH;
+  if (picoamp.FCLK_state == LOW){
+    picoamp.FCLK_state = HIGH;
   } else {
-    FCLK_state = LOW;
+    picoamp.FCLK_state = LOW;
   }
-  digitalWrite(FCLK_pin,FCLK_state);
+  digitalWrite(FCLK_pin,picoamp.FCLK_state);
 }
