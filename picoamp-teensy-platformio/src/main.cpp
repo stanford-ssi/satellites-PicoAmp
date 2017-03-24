@@ -23,7 +23,7 @@ int sample = 0;
 int sample2 = 1024 >> 2;
 int count = 0;
 
-PicoAmp picoamp;
+PicoAmp picoamp(250); // Desired low-pass filter frequency, in Hz
 
 void init() {
   // setup PicoAmp
@@ -80,9 +80,6 @@ void checkSerial() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-
-  // driver LPF's need a clock supplied to even work. Needs to be 60x desired cutoff freq
-  // quick and dirty way to get this by toggling a pin at 50kHz (ish)
   delayMicroseconds(10);
   count++;
   // if count = 100, youve waited 1ms time to update things
@@ -100,7 +97,4 @@ void loop() {
     checkSerial();
 
   }
-
-  // toggle the FCLK pin every time
-  picoamp.toggleFCLK();
 }

@@ -13,7 +13,7 @@ const int DRIVER_HV_EN_pin = 8;
 class PicoAmp {
 public:
   // Constructor
-  PicoAmp(){}
+  PicoAmp(uint16_t filter_freq);
 
   // Methods
   void init();
@@ -52,11 +52,16 @@ private:
   // Buffers
   uint8_t DAC_write_word[3]; // DAC input register is 24 bits, SPI writes 8 bits at a time. Need to queue up 3 bytes (24 bits) to send every time you write to it
 
-  // State variables
+  // State Variables
   uint8_t hv_enabled = 0;
-  uint8_t FCLK_state = 0;
+  volatile uint8_t FCLK_state = 0; // Volatile keyword is required because this variable is changed by a timer
+
+  // Filter Clock
+  IntervalTimer timer_fclk;
+  float f_filter;
+  float fclk_half_period;
 };
 
-
+extern PicoAmp pAmp;
 
 #endif
