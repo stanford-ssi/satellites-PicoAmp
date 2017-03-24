@@ -16,14 +16,20 @@
 //#include <spi4teensy3.h>
 #include "PicoAmp.h"
 
-#define BUFFER_LEN 1024
+#define SINE_FREQ 200
+#define BUFFER_LEN 16
 static int16_t sine_wave[BUFFER_LEN]; // buffer to hold our sinusoid playback. Since DAC channels are 16 bits, array is int16
 
-int sample = 0;
-int sample2 = 1024 >> 2;
-int count = 0;
+const float picoamp_output_period = 1000000.0/3200.0;
 
-PicoAmp picoamp(250); // Desired low-pass filter frequency, in Hz
+volatile int16_t sample = 0; // Volatile because this variable can be updated by a timer
+volatile int16_t sample2 = 1024 >> 2;
+int8_t count = 0;
+
+PicoAmp picoamp(1000); // Desired low-pass filter frequency, in Hz
+IntervalTimer output_clock;
+
+void isr_picoamp_output();
 
 void init() {
   // setup PicoAmp
@@ -34,6 +40,7 @@ void init() {
 }
 
 void create_sine() {
+  noInterrupts();
   float twopi = 2*PI; // good old pi
   float phase = twopi/BUFFER_LEN; // phase increment for sinusoid
   float val = 0; // temp variable to store value for sine wave
@@ -45,12 +52,14 @@ void create_sine() {
     num = (int16_t) ((val*32767));// convert decimal to int16 representation: multiply range to fill 65535 values (-32767 -> 32767) (lose one value, but don't have to deal with rollover)
     sine_wave[i] = num; // put in buffer
   }
+  interrupts();
 }
 
 void setup() {
   // put your setup code here, to run once:
   init();
   create_sine();
+  output_clock.begin(isr_picoamp_output, picoamp_output_period);
 }
 
 void checkSerial() {
@@ -86,15 +95,18 @@ void loop() {
   if (count == 100) {
     count = 0;
     // grab next sample from sine wave and line it up in the DAC write word
-    picoamp.setDiff(picoamp.X_AXIS, 2*sine_wave[sample]);
-    picoamp.setDiff(picoamp.Y_AXIS, 2*sine_wave[sample2]);
-    picoamp.update();
-
-    sample++; // increment for next sample
-    sample2++;
-    if (sample >= 1024) sample = 0; // reset to start of array
-    if (sample2 >= 1024) sample2 = 0; // reset to start of array
     checkSerial();
 
   }
+}
+
+void isr_picoamp_output(){
+  picoamp.setDiff(picoamp.X_AXIS, 2*sine_wave[sample]);
+  picoamp.setDiff(picoamp.Y_AXIS, 2*sine_wave[sample2]);
+  picoamp.update();
+
+  sample++; // increment for next sample
+  sample2++;
+  if (sample >= BUFFER_LEN) sample = 0; // reset to start of array
+  if (sample2 >= BUFFER_LEN) sample2 = 0; // reset to start of array
 }
