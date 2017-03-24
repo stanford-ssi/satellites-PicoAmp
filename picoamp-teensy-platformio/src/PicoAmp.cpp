@@ -1,7 +1,5 @@
 #include "PicoAmp.h"
 
-//static void toggleFCLK_isr();
-
 PicoAmp::PicoAmp(uint16_t filter_freq = 1000){
     f_filter = (float)filter_freq;
     fclk_period = 1000000.0/(f_filter * 60.0);  // = 1000000us /(1kHz * 60) - drives filter clock at 60kHz to create 1kHz filter
@@ -22,11 +20,7 @@ void PicoAmp::init(){
 
   // write pins low
   digitalWrite(slaveSelectPin,HIGH); //Chip select is inverted; pull low when writing a command, leave high otherwise
-  //digitalWrite(FCLK_pin,FCLK_state); //Default low
   digitalWrite(DRIVER_HV_EN_pin,hv_enabled); //Default low
-
-  // Initialize timer to drive fclk (filter clock)
-  //timer_fclk.begin(toggleFCLK_isr, fclk_half_period);
 
   // Set up DAC
   // send the DAC write word one byte at a time:
@@ -113,16 +107,3 @@ void PicoAmp::disableHV(){
   hv_enabled = false;
   digitalWrite(DRIVER_HV_EN_pin,hv_enabled);
 }
-
-/*void PicoAmp::toggleFCLK(){
-  FCLK_state = !FCLK_state;
-  digitalWrite(FCLK_pin,FCLK_state);
-}
-
-
-// See https://forum.pjrc.com/threads/28446-IntervalTimer-Function-Pointer?p=71337&viewfull=1#post71337
-PicoAmp pAmp;
-
-static void toggleFCLK_isr(){
-  pAmp.toggleFCLK();
-}*/

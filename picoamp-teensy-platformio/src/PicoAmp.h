@@ -26,7 +26,6 @@ public:
   void setDiff(uint8_t axis, uint32_t val);
   void enableHV();
   void disableHV();
-  //void toggleFCLK();
 
   // Commands
   const uint8_t WRITE = 0b000;
@@ -55,10 +54,8 @@ private:
                                       // Volatile keyword is required because this variable is (often) changed by a timer
   // State Variables
   uint8_t hv_enabled = 0;
-  //volatile uint8_t FCLK_state = 0; // Volatile keyword is required because this variable is changed by a timer
 
   // Filter Clock
-  //IntervalTimer timer_fclk;
   float f_filter;
   float fclk_period;
   const uint16_t FCLK_DUTY_50 = 512;
