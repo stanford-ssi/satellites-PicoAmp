@@ -4,10 +4,11 @@
 #include <stdint.h>
 #include <Arduino.h>
 #include <SPI.h>
+#include <TimerOne.h>
 
 // Pins
 const int slaveSelectPin = 10;
-const int FCLK_pin = 9;
+const int FCLK_pin = 3;
 const int DRIVER_HV_EN_pin = 8;
 
 class PicoAmp {
@@ -25,7 +26,7 @@ public:
   void setDiff(uint8_t axis, uint32_t val);
   void enableHV();
   void disableHV();
-  void toggleFCLK();
+  //void toggleFCLK();
 
   // Commands
   const uint8_t WRITE = 0b000;
@@ -54,14 +55,13 @@ private:
                                       // Volatile keyword is required because this variable is (often) changed by a timer
   // State Variables
   uint8_t hv_enabled = 0;
-  volatile uint8_t FCLK_state = 0; // Volatile keyword is required because this variable is changed by a timer
+  //volatile uint8_t FCLK_state = 0; // Volatile keyword is required because this variable is changed by a timer
 
   // Filter Clock
-  IntervalTimer timer_fclk;
+  //IntervalTimer timer_fclk;
   float f_filter;
-  float fclk_half_period;
+  float fclk_period;
+  const uint16_t FCLK_DUTY_50 = 512;
 };
-
-extern PicoAmp pAmp;
 
 #endif

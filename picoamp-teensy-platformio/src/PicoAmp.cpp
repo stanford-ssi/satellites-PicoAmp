@@ -1,10 +1,10 @@
 #include "PicoAmp.h"
 
-static void toggleFCLK_isr();
+//static void toggleFCLK_isr();
 
 PicoAmp::PicoAmp(uint16_t filter_freq = 1000){
     f_filter = (float)filter_freq;
-    fclk_half_period = 1000000.0/(f_filter * 60.0 * 2.0);  // = 1000000us /(1kHz * 60 * 2) - drives filter clock at 60kHz to create 1kHz filter
+    fclk_period = 1000000.0/(f_filter * 60.0);  // = 1000000us /(1kHz * 60) - drives filter clock at 60kHz to create 1kHz filter
 }
 
 void PicoAmp::init(){
@@ -16,13 +16,17 @@ void PicoAmp::init(){
   pinMode (FCLK_pin, OUTPUT); // Driver board filter clock pin 9
   pinMode (DRIVER_HV_EN_pin, OUTPUT); // driver board high voltage output enable pin 8
 
+  // Run filter clock at desired frequency as a 50% duty cycle square wave
+  Timer1.initialize(fclk_period);
+  Timer1.pwm(FCLK_pin, FCLK_DUTY_50);
+
   // write pins low
   digitalWrite(slaveSelectPin,HIGH); //Chip select is inverted; pull low when writing a command, leave high otherwise
-  digitalWrite(FCLK_pin,FCLK_state); //Default low
+  //digitalWrite(FCLK_pin,FCLK_state); //Default low
   digitalWrite(DRIVER_HV_EN_pin,hv_enabled); //Default low
 
   // Initialize timer to drive fclk (filter clock)
-  timer_fclk.begin(toggleFCLK_isr, fclk_half_period);
+  //timer_fclk.begin(toggleFCLK_isr, fclk_half_period);
 
   // Set up DAC
   // send the DAC write word one byte at a time:
@@ -110,7 +114,7 @@ void PicoAmp::disableHV(){
   digitalWrite(DRIVER_HV_EN_pin,hv_enabled);
 }
 
-void PicoAmp::toggleFCLK(){
+/*void PicoAmp::toggleFCLK(){
   FCLK_state = !FCLK_state;
   digitalWrite(FCLK_pin,FCLK_state);
 }
@@ -121,4 +125,4 @@ PicoAmp pAmp;
 
 static void toggleFCLK_isr(){
   pAmp.toggleFCLK();
-}
+}*/
