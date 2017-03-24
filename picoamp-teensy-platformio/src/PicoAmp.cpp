@@ -10,9 +10,9 @@ void PicoAmp::init(){
   pinMode (DRIVER_HV_EN_pin, OUTPUT); // driver board high voltage output enable pin 8
 
   // write pins low
-  digitalWrite(slaveSelectPin,LOW);
-  digitalWrite(FCLK_pin,FCLK_state);
-  digitalWrite(DRIVER_HV_EN_pin,LOW);
+  digitalWrite(slaveSelectPin,HIGH); //Chip select is inverted; pull low when writing a command, leave high otherwise
+  digitalWrite(FCLK_pin,FCLK_state); //Default low
+  digitalWrite(DRIVER_HV_EN_pin,hv_enabled); //Default low
 
   // Set up DAC
   // send the DAC write word one byte at a time:
@@ -88,4 +88,19 @@ void PicoAmp::setDiff(uint8_t axis, uint32_t val) {
     setChannel(DAC_D, midpoint + val/2);
     setChannel(DAC_C, midpoint - val/2);
   }
+}
+
+void PicoAmp::enableHV(){
+  hv_enabled = true;
+  digitalWrite(DRIVER_HV_EN_pin,hv_enabled);
+}
+
+void PicoAmp::disableHV(){
+  hv_enabled = false;
+  digitalWrite(DRIVER_HV_EN_pin,hv_enabled);
+}
+
+void PicoAmp::toggleFCLK(){
+  FCLK_state = !FCLK_state;
+  digitalWrite(FCLK_pin,FCLK_state);
 }

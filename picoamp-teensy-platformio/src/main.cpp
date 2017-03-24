@@ -60,14 +60,12 @@ void checkSerial() {
       byte byte_in = Serial.read();
       // turn HV output on / off with command
       if (byte_in == '1') {
-        picoamp.hv_enabled = 1;
-        digitalWrite(DRIVER_HV_EN_pin,HIGH);
+        picoamp.enableHV();
 
         Serial.println("HV outputs enabled.");
       }
       if (byte_in == '0') {
-        picoamp.hv_enabled = 0;
-        digitalWrite(DRIVER_HV_EN_pin,LOW);
+        picoamp.disableHV();
 
         Serial.println("HV outputs disabled.");
       }
@@ -91,10 +89,8 @@ void loop() {
   if (count == 100) {
     count = 0;
     // grab next sample from sine wave and line it up in the DAC write word
-    picoamp.setDiff(X_AXIS, 2*sine_wave[sample]);
-    //picoamp.setChannel(DAC_A, sine_wave[sample]);
-    //picoamp.setChannel(DAC_B, 65535-sine_wave[sample]);
-    picoamp.setDiff(Y_AXIS, 2*sine_wave[sample2]);
+    picoamp.setDiff(picoamp.X_AXIS, 2*sine_wave[sample]);
+    picoamp.setDiff(picoamp.Y_AXIS, 2*sine_wave[sample2]);
     picoamp.update();
 
     sample++; // increment for next sample
@@ -106,10 +102,5 @@ void loop() {
   }
 
   // toggle the FCLK pin every time
-  if (picoamp.FCLK_state == LOW){
-    picoamp.FCLK_state = HIGH;
-  } else {
-    picoamp.FCLK_state = LOW;
-  }
-  digitalWrite(FCLK_pin,picoamp.FCLK_state);
+  picoamp.toggleFCLK();
 }
