@@ -83,18 +83,18 @@ void PicoAmp::update() {
 
 void PicoAmp::setChannel(uint16_t channel, uint16_t val) {
   setCommand(WRITE, channel);
-  setData(val);
+  setData(min(val,HV_HI_LIMIT)); // Prevents driver from going above high voltage limit, preventing mirror damage (unheard of...)
   sendCommand();
 }
 
-void PicoAmp::setDiff(uint8_t axis, uint32_t val) {
+void PicoAmp::setDiff(uint8_t axis, int32_t val) {
   uint16_t midpoint = 32768;
   if (axis == X_AXIS) {
     setChannel(DAC_A, (uint16_t)(midpoint + val/2));
     setChannel(DAC_B, (uint16_t)(midpoint - val/2));
   } else if (axis == Y_AXIS) {
-    setChannel(DAC_D, midpoint + val/2);
-    setChannel(DAC_C, midpoint - val/2);
+    setChannel(DAC_D, (uint16_t)(midpoint + val/2));
+    setChannel(DAC_C, (uint16_t)(midpoint - val/2));
   }
 }
 

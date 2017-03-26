@@ -16,17 +16,17 @@
 //#include <spi4teensy3.h>
 #include "PicoAmp.h"
 
-#define SINE_FREQ 200
-#define BUFFER_LEN 16
+#define SINE_FREQ 1
+#define BUFFER_LEN 64
 static int16_t sine_wave[BUFFER_LEN]; // buffer to hold our sinusoid playback. Since DAC channels are 16 bits, array is int16
 
-const float picoamp_output_period = 1000000.0/3200.0;
+const float picoamp_output_period = 1000000.0/float(SINE_FREQ*BUFFER_LEN);
 
 volatile int16_t sample = 0; // Volatile because this variable can be updated by a timer
-volatile int16_t sample2 = 1024 >> 2;
+volatile int16_t sample2 = 16;
 int8_t count = 0;
 
-PicoAmp picoamp(1000); // Desired low-pass filter frequency, in Hz
+PicoAmp picoamp(180); // Desired low-pass filter frequency, in Hz
 IntervalTimer output_clock;
 
 void isr_picoamp_output();
@@ -49,7 +49,7 @@ void create_sine() {
   Serial.println("Filling in sine wave");
   for (int i = 0; i < BUFFER_LEN; i++){
     val = sin(i*phase); // fill 0 to twopi phase, output range -1 to 1
-    num = (int16_t) ((val*32767));// convert decimal to int16 representation: multiply range to fill 65535 values (-32767 -> 32767) (lose one value, but don't have to deal with rollover)
+    num =(int16_t) ((val*2000));// convert decimal to int16 representation: multiply range to fill 65535 values (-32767 -> 32767) (lose one value, but don't have to deal with rollover)
     sine_wave[i] = num; // put in buffer
   }
   interrupts();
@@ -103,6 +103,9 @@ void loop() {
 void isr_picoamp_output(){
   picoamp.setDiff(picoamp.X_AXIS, 2*sine_wave[sample]);
   picoamp.setDiff(picoamp.Y_AXIS, 2*sine_wave[sample2]);
+
+  // picoamp.setDiff(picoamp.X_AXIS, -43000);
+  // picoamp.setDiff(picoamp.Y_AXIS, 43000);
   picoamp.update();
 
   sample++; // increment for next sample

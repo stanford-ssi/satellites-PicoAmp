@@ -23,7 +23,7 @@ public:
   void setData(uint16_t data);
   void update();
   void setChannel(uint16_t channel, uint16_t val);
-  void setDiff(uint8_t axis, uint32_t val);
+  void setDiff(uint8_t axis, int32_t val);
   void enableHV();
   void disableHV();
 
@@ -46,6 +46,8 @@ public:
 
   const uint8_t X_AXIS = 1;
   const uint8_t Y_AXIS = 2;
+
+  const uint16_t HV_HI_LIMIT = 57500; // Conservatively rounded down from 65535 * 145V/165V
 
 private:
 
