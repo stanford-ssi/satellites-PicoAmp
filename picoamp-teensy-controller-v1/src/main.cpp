@@ -5,8 +5,8 @@
 const float picoamp_output_frequency = 1000.0; // [Hz]
 const float picoamp_output_period = 1000000.0/picoamp_output_frequency; // [usec]
 
-const float Kc =        1.0;    // Proportional
-const float Ti =        1000;   // Integral
+const float Kc =        0.01;    // Proportional
+const float Ti =        0.001;    // Integral
 const float Td =        0.0;    // Derivative
 const float PID_rate =  0.001;  // [sec]
 
@@ -17,6 +17,9 @@ volatile int16_t control_y = 0;
 
 #define QUADCELL_X_PIN A0
 #define QUADCELL_Y_PIN A1
+#define QUADCELL_MAX_ACTION 5000
+#define QUADCELL_X_TARGET 512 // Center
+#define QUADCELL_Y_TARGET 512 // Center
 volatile int16_t quadcell_x = 0;
 volatile int16_t quadcell_y = 0;
 
@@ -43,17 +46,17 @@ void init() {
 }
 
 void initPID(){
-  mirror_PID_x.setInputLimits(0, 1023);
-  mirror_PID_x.setOutputLimits(-1000,1000);
+  mirror_PID_x.setInputLimits(0, 1023); // Teensy ADC limits - 10 bit
+  mirror_PID_x.setOutputLimits(-QUADCELL_MAX_ACTION,QUADCELL_MAX_ACTION);
   mirror_PID_x.setBias(0);
   mirror_PID_x.setMode(AUTO_MODE);
-  mirror_PID_x.setSetPoint(512);
+  mirror_PID_x.setSetPoint(QUADCELL_X_TARGET);
 
-  mirror_PID_y.setInputLimits(0, 1023);
-  mirror_PID_y.setOutputLimits(-1000,1000);
+  mirror_PID_y.setInputLimits(0, 1023); // Teensy ADC limits - 10 bit
+  mirror_PID_y.setOutputLimits(-QUADCELL_MAX_ACTION,QUADCELL_MAX_ACTION);
   mirror_PID_y.setBias(0);
   mirror_PID_y.setMode(AUTO_MODE);
-  mirror_PID_y.setSetPoint(512);
+  mirror_PID_y.setSetPoint(QUADCELL_Y_TARGET);
 }
 
 void setup() {
@@ -84,6 +87,9 @@ void checkSerial() {
         if(verbose_PID) Serial.println("Verbose output on");
         else Serial.println("Verbose output off");
       }
+      /*if(Serial.available() > 1 && byte_in == 'k'){
+
+      }*/
     }
 
     interrupts(); // Resume your normally scheduled interruptions
