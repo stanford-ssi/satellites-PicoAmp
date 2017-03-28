@@ -1,9 +1,19 @@
+/***
+* This code tests a PI control loop's ability to center a laser beam on a
+* quad-cell photodetector using a fast steering mirror
+*
+* S. Maldonado
+* 2017-03-28
+***/
 
 #include "PicoAmp.h"
 #include "PID.h"
 
 const float picoamp_output_frequency = 1000.0; // [Hz]
 const float picoamp_output_period = 1000000.0/picoamp_output_frequency; // [usec]
+
+// PID Control Law:
+// Dc(s)/err(s) = Kc + Kc/(Ti*s) + Kc*(Td*s)
 
 const float Kc =        0.01;    // Proportional
 const float Ti =        0.001;    // Integral
@@ -36,6 +46,8 @@ void initPID();
 void init() {
   // setup PicoAmp
   picoamp.init();
+
+  // Set up PID
   initPID();
 
   pinMode(QUADCELL_X_PIN, INPUT);
@@ -48,15 +60,15 @@ void init() {
 void initPID(){
   mirror_PID_x.setInputLimits(0, 1023); // Teensy ADC limits - 10 bit
   mirror_PID_x.setOutputLimits(-MIRROR_MAX_ACTION,MIRROR_MAX_ACTION);
-  mirror_PID_x.setBias(0);
+  mirror_PID_x.setBias(0); // Output bias - output is centered around zero
   mirror_PID_x.setMode(AUTO_MODE);
-  mirror_PID_x.setSetPoint(QUADCELL_X_TARGET);
+  mirror_PID_x.setSetPoint(QUADCELL_X_TARGET); // Sets desired ADC input value
 
   mirror_PID_y.setInputLimits(0, 1023); // Teensy ADC limits - 10 bit
   mirror_PID_y.setOutputLimits(-MIRROR_MAX_ACTION,MIRROR_MAX_ACTION);
-  mirror_PID_y.setBias(0);
+  mirror_PID_y.setBias(0); // Output bias - output is centered around zero
   mirror_PID_y.setMode(AUTO_MODE);
-  mirror_PID_y.setSetPoint(QUADCELL_Y_TARGET);
+  mirror_PID_y.setSetPoint(QUADCELL_Y_TARGET); // Sets desired ADC input value
 }
 
 void setup() {
@@ -107,23 +119,28 @@ void loop() {
 }
 
 void isr_picoamp_output(){
+  // Read ADC values
   quadcell_x = analogRead(QUADCELL_X_PIN);
   quadcell_y = analogRead(QUADCELL_Y_PIN);
 
+  // Print ADC values
   if(verbose_PID){
     Serial.println(quadcell_x);
     Serial.println(quadcell_y);
     Serial.println();
   }
 
+  // Set new error values
   mirror_PID_x.setProcessValue(quadcell_x);
   mirror_PID_y.setProcessValue(quadcell_y);
 
+  // Calculate controller outputs
   control_x = mirror_PID_x.compute();
   control_y = mirror_PID_y.compute();
 
+  // Send controller output to mirror
   picoamp.setDiff(picoamp.X_AXIS, 2*control_x);
-  picoamp.setDiff(picoamp.Y_AXIS, -2*control_y);
+  picoamp.setDiff(picoamp.Y_AXIS, -2*control_y); // y-axis is inexplicably mirrored
 
   picoamp.update();
 }
