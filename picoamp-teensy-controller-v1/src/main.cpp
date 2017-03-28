@@ -17,7 +17,7 @@ volatile int16_t control_y = 0;
 
 #define QUADCELL_X_PIN A0
 #define QUADCELL_Y_PIN A1
-#define QUADCELL_MAX_ACTION 5000
+#define MIRROR_MAX_ACTION 10000
 #define QUADCELL_X_TARGET 512 // Center
 #define QUADCELL_Y_TARGET 512 // Center
 volatile int16_t quadcell_x = 0;
@@ -47,13 +47,13 @@ void init() {
 
 void initPID(){
   mirror_PID_x.setInputLimits(0, 1023); // Teensy ADC limits - 10 bit
-  mirror_PID_x.setOutputLimits(-QUADCELL_MAX_ACTION,QUADCELL_MAX_ACTION);
+  mirror_PID_x.setOutputLimits(-MIRROR_MAX_ACTION,MIRROR_MAX_ACTION);
   mirror_PID_x.setBias(0);
   mirror_PID_x.setMode(AUTO_MODE);
   mirror_PID_x.setSetPoint(QUADCELL_X_TARGET);
 
   mirror_PID_y.setInputLimits(0, 1023); // Teensy ADC limits - 10 bit
-  mirror_PID_y.setOutputLimits(-QUADCELL_MAX_ACTION,QUADCELL_MAX_ACTION);
+  mirror_PID_y.setOutputLimits(-MIRROR_MAX_ACTION,MIRROR_MAX_ACTION);
   mirror_PID_y.setBias(0);
   mirror_PID_y.setMode(AUTO_MODE);
   mirror_PID_y.setSetPoint(QUADCELL_Y_TARGET);
