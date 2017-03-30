@@ -52,6 +52,19 @@ int sample = 0;
 int sample2 = 1024 >> 2;
 int FCLK_state = LOW;
 int count = 0;
+int num_update = 0;
+
+void setPin(int pin, int state) {
+  digitalWrite(pin, state);
+}
+
+void print(String str) {
+  Serial.println(str);
+}
+
+void spiWriteByte(uint8_t b) {
+  SPI.transfer(b);
+}
 
 byte hv_enabled = 0;
 
@@ -61,14 +74,14 @@ void setupPins() {
   pinMode (FCLK_pin, OUTPUT); // Driver board filter clock pin 9
   pinMode (DRIVER_HV_EN_pin, OUTPUT); // driver board high voltage output enable pin 8
   // write pins low
-  digitalWrite(slaveSelectPin,LOW);
-  digitalWrite(FCLK_pin,FCLK_state);
-  digitalWrite(DRIVER_HV_EN_pin,LOW);
+  setPin(slaveSelectPin,LOW);
+  setPin(FCLK_pin,FCLK_state);
+  setPin(DRIVER_HV_EN_pin,LOW);
   // setup serial
   Serial.begin(19200);
   
   // setup SPI
-  Serial.println("Setting up SPI");
+  print("Setting up SPI");
   // fast SPI lib
   // spi4teensy3::init(); // full speed, cpol 0, cpha 0
 
@@ -79,35 +92,35 @@ void setupPins() {
 void init() {
   setupPins();
     // setup DAC
-  Serial.println("Setting up DAC");
+  print("Setting up DAC");
   //  send the DAC write word one byte at a time:
   // 0x280001 FULL_RESET
-  digitalWrite(slaveSelectPin,LOW);
-  SPI.transfer(0x28);
-  SPI.transfer(0x00);
-  SPI.transfer(0x01);
-  digitalWrite(slaveSelectPin,HIGH);
+  setPin(slaveSelectPin,LOW);
+  spiWriteByte(0x28);
+  spiWriteByte(0x00);
+  spiWriteByte(0x01);
+  setPin(slaveSelectPin,HIGH);
   delayMicroseconds(1);
   // 0x380001 INT_REF_EN
-  digitalWrite(slaveSelectPin,LOW);
-  SPI.transfer(0x38);
-  SPI.transfer(0x00);
-  SPI.transfer(0x01);
-  digitalWrite(slaveSelectPin,HIGH);
+  setPin(slaveSelectPin,LOW);
+  spiWriteByte(0x38);
+  spiWriteByte(0x00);
+  spiWriteByte(0x01);
+  setPin(slaveSelectPin,HIGH);
   delayMicroseconds(1);
   // 0x20000F DAC_EN_ALL
-  digitalWrite(slaveSelectPin,LOW);
-  SPI.transfer(0x20);
-  SPI.transfer(0x00);
-  SPI.transfer(0x0F);
-  digitalWrite(slaveSelectPin,HIGH);
+  setPin(slaveSelectPin,LOW);
+  spiWriteByte(0x20);
+  spiWriteByte(0x00);
+  spiWriteByte(0x0F);
+  setPin(slaveSelectPin,HIGH);
   delayMicroseconds(1); 
   // 0x300000 LDAC_EN
-  digitalWrite(slaveSelectPin,LOW);
-  SPI.transfer(0x30);
-  SPI.transfer(0x00);
-  SPI.transfer(0x00);
-  digitalWrite(slaveSelectPin,HIGH);
+  setPin(slaveSelectPin,LOW);
+  spiWriteByte(0x30);
+  spiWriteByte(0x00);
+  spiWriteByte(0x00);
+  setPin(slaveSelectPin,HIGH);
   delayMicroseconds(1);
 }
 
@@ -117,10 +130,14 @@ void create_sine() {
   float val = 0; // temp variable to store value for sine wave
   int num = 0;
   // Fill the sine wave buffer with 1024 points
-  Serial.println("Filling in sine wave");
+  print("Filling in sine wave");
   for (int i = 0; i < BUFFER_LEN; i++){
-    val = sin(i*phase); // fill 0 to twopi phase, output range -1 to 1
-    num = (int) (val*65535);// convert decimal to uint16 representation: multiply range to fill 65536 values (-32768 -> 32768) and add 32767 offset to go 0-65535 (ish, lose one value for 0)
+    //val = sin(i*phase); // fill 0 to twopi phase, output range -1 to 1
+    //num = (int) (val*65535);// convert decimal to uint16 representation: multiply range to fill 65536 values (-32768 -> 32768) and add 32767 offset to go 0-65535 (ish, lose one value for 0)
+    num = (int) ((65535 * 4 * i)/1024);// convert decimal to uint16 representation: multiply range to fill 65536 values (-32768 -> 32768) and add 32767 offset to go 0-65535 (ish, lose one value for 0)
+    num = 2 * 65535 - num;
+    num = abs(num) - 65535;
+    
     sine_wave[i] = num; // put in buffer  
   }
 }
@@ -139,15 +156,15 @@ void checkSerial() {
       // turn HV output on / off with command
       if (byte_in == '1') {
         hv_enabled = 1;
-        digitalWrite(DRIVER_HV_EN_pin,HIGH);
+        setPin(DRIVER_HV_EN_pin,HIGH);
 
-        Serial.println("HV outputs enabled.");
+        print("HV outputs enabled.");
       }
       if (byte_in == '0') {
         hv_enabled = 0;
-        digitalWrite(DRIVER_HV_EN_pin,LOW);
+        setPin(DRIVER_HV_EN_pin,LOW);
 
-        Serial.println("HV outputs disabled.");
+        print("HV outputs disabled.");
       }
     }
 }
@@ -155,13 +172,13 @@ void checkSerial() {
 void sendCommand() {
     // default SPI lib
     // manually toggle SS pin (blergh)
-    digitalWrite(slaveSelectPin,LOW);
+    setPin(slaveSelectPin,LOW);
     //  send the DAC write word one byte at a time:
-    SPI.transfer(DAC_write_word[0]);
-    SPI.transfer(DAC_write_word[1]);
-    SPI.transfer(DAC_write_word[2]);
+    spiWriteByte(DAC_write_word[0]);
+    spiWriteByte(DAC_write_word[1]);
+    spiWriteByte(DAC_write_word[2]);
     // take the SS pin high to de-select the chip:
-    digitalWrite(slaveSelectPin,HIGH);  
+    setPin(slaveSelectPin,HIGH);  
 }
 
 void setCommand(uint8_t commandByte, uint8_t address) {
@@ -204,8 +221,8 @@ void loop() {
   delayMicroseconds(10);
   count++;
   // if count = 100, youve waited 1ms time to update things
-  if (count == 100) {
-    count = 0;
+  if (true) {
+    //count = 0;
     // grab next sample from sine wave and line it up in the DAC write word
     setDiff(X_AXIS, sine_wave[sample]);
     setDiff(Y_AXIS, sine_wave[sample2]);
@@ -218,12 +235,18 @@ void loop() {
     checkSerial();
     
   }
-
+  if (count == 10) {
+    count = 0;
   // toggle the FCLK pin every time
   if (FCLK_state == LOW){
     FCLK_state = HIGH;
   } else {
     FCLK_state = LOW;
   }
-  digitalWrite(FCLK_pin,FCLK_state);
+  setPin(FCLK_pin,FCLK_state);
+  }
+  num_update++;
+  if (num_update % 500000 == 0) {
+    //print(num_update);
+  }
 }
